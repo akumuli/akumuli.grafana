@@ -85,8 +85,8 @@ class AkumuliDatasource {
 
   metricFindQuery(metricName) {
     var requestBody: any = {
-      select: metricName,
-      limit: 10
+      select: "metric-names",
+      "starts-with": metricName
     };
     var httpRequest: any = {
       method: "POST",
@@ -98,13 +98,16 @@ class AkumuliDatasource {
       var data = [];
       if (res.data.charAt(0) === '-') {
         console.log("Query error");
-        return { data: null };
+        return data;
       }
       var lines = res.data.split("\r\n");
       _.forEach(lines, line => {
-        data.push(line.subdir(1));
+        if (line) {
+          var name = line.substr(1);
+          data.push({text: name, value: name});
+        }
       });
-      return { data: data };
+      return data;
     });
   }
 
@@ -124,14 +127,66 @@ class AkumuliDatasource {
     });
   }
 
-  suggestTagKeys(options) {
-    // TODO: implement
-    return [];
+  suggestTagKeys(metric, tagPrefix) {
+    tagPrefix = tagPrefix || "";
+    var requestBody: any = {
+      select: "tag-names",
+      metric: metric,
+      "starts-with": tagPrefix
+    };
+    var httpRequest: any = {
+      method: "POST",
+      url: this.instanceSettings.url + "/api/suggest",
+      data: requestBody
+    };
+
+    return this.backendSrv.datasourceRequest(httpRequest).then(res => {
+      var data = [];
+      if (res.data.charAt(0) === '-') {
+        console.log("Query error");
+        return data;
+      }
+      var lines = res.data.split("\r\n");
+      _.forEach(lines, line => {
+        if (line) {
+          var name = line.substr(1);
+          data.push({text: name, value: name});
+        }
+      });
+      return data;
+    });
   }
 
-  suggestTagValues(options) {
-    // TODO: implement
-    return [];
+  suggestTagValues(metric, tagName, valuePrefix) {
+    tagName = tagName || "";
+    valuePrefix = valuePrefix || "";
+    var requestBody: any = {
+      select: "tag-values",
+      metric: metric,
+      tag: tagName,
+      "starts-with": valuePrefix
+    };
+    var httpRequest: any = {
+      method: "POST",
+      url: this.instanceSettings.url + "/api/suggest",
+      data: requestBody
+    };
+
+    return this.backendSrv.datasourceRequest(httpRequest).then(res => {
+      var data = [];
+      if (res.data.charAt(0) === '-') {
+        console.log("Query error");
+        return data;
+      }
+      var lines = res.data.split("\r\n");
+      _.forEach(lines, line => {
+        if (line) {
+          var name = line.substr(1);
+          data.push({text: name, value: name});
+        }
+      });
+      return data;
+    });
   }
 
   /** Query time-series storage */

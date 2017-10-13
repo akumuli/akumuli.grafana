@@ -58,11 +58,13 @@ export class AkumuliQueryCtrl extends QueryCtrl {
     };
 
     this.suggestTagKeys = (query, callback) => {
-      this.datasource.suggestTagKeys(this.target.metric).then(callback);
+      this.datasource.suggestTagKeys(this.target.metric, this.target.currentTagKey)
+      .then(this.getTextValues)
+      .then(callback);
     };
 
     this.suggestTagValues = (query, callback) => {
-      this.datasource.metricFindQuery(query)
+      this.datasource.suggestTagValues(this.target.metric, this.target.currentTagKey, this.target.currentTagValue)
       .then(this.getTextValues)
       .then(callback);
     };
