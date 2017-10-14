@@ -14,61 +14,117 @@ class AkumuliDatasource {
     console.log(options.maxDataPoints);
     console.log(options.interval);
     console.log("-----");
-    return this.timeSeriesQuery(options).then(res => {
-      if (res.data.charAt(0) === '-') {
-        console.log("Query error");
-        return { data: null };
-      }
-      var data = [];
-      var lines = res.data.split("\r\n");
-      var index = 0;
-      var series = null;
-      var timestamp = null;
-      var value = 0.0;
-      var datapoints = [];
-      var currentTarget = null;
-      _.forEach(lines, line => {
-        let step = index % 4;
-        switch (step) {
-          case 0:
-            // parse series name
-            series = line.replace(/(\S*)(:mean)(.*)/g, "$1$3").substr(1);
-            break;
-          case 1:
-            // parse timestamp
-            timestamp = moment.utc(line.substr(1)).local();
-            break;
-          case 2:
-            break;
-          case 3:
-            value = parseFloat(line.substr(1));
-            break;
+    if (!options.targets[0].disableDownsampling) {
+      return this.groupAggregateQuery(options).then(res => {
+        if (res.data.charAt(0) === '-') {
+          console.log("Query error");
+          return { data: null };
         }
-        if (step === 3) {
-          if (currentTarget == null) {
-            currentTarget = series;
+        var data = [];
+        var lines = res.data.split("\r\n");
+        var index = 0;
+        var series = null;
+        var timestamp = null;
+        var value = 0.0;
+        var datapoints = [];
+        var currentTarget = null;
+        _.forEach(lines, line => {
+          let step = index % 4;
+          switch (step) {
+            case 0:
+              // parse series name
+              series = line.replace(/(\S*)(:mean)(.*)/g, "$1$3").substr(1);
+              break;
+            case 1:
+              // parse timestamp
+              timestamp = moment.utc(line.substr(1)).local();
+              break;
+            case 2:
+              break;
+            case 3:
+              value = parseFloat(line.substr(1));
+              break;
           }
-          if (currentTarget === series) {
-            datapoints.push([value, timestamp]);
-          } else {
-            data.push({
-              target: currentTarget,
-              datapoints: datapoints
-            });
-            datapoints = [[value, timestamp]];
-            currentTarget = series;
+          if (step === 3) {
+            if (currentTarget == null) {
+              currentTarget = series;
+            }
+            if (currentTarget === series) {
+              datapoints.push([value, timestamp]);
+            } else {
+              data.push({
+                target: currentTarget,
+                datapoints: datapoints
+              });
+              datapoints = [[value, timestamp]];
+              currentTarget = series;
+            }
           }
-        }
-        index++;
-      });
-      if (datapoints.length !== 0) {
-        data.push({
-          target: currentTarget,
-          datapoints: datapoints
+          index++;
         });
-      }
-      return { data: data };
-    });
+        if (datapoints.length !== 0) {
+          data.push({
+            target: currentTarget,
+            datapoints: datapoints
+          });
+        }
+        return { data: data };
+      });
+    } else {
+      return this.selectQuery(options).then(res => {
+        if (res.data.charAt(0) === '-') {
+          console.log("Query error");
+          return { data: null };
+        }
+        var data = [];
+        var lines = res.data.split("\r\n");
+        var index = 0;
+        var series = null;
+        var timestamp = null;
+        var value = 0.0;
+        var datapoints = [];
+        var currentTarget = null;
+        _.forEach(lines, line => {
+          let step = index % 3;
+          switch (step) {
+            case 0:
+              // parse series name
+              series = line.substr(1);
+              break;
+            case 1:
+              // parse timestamp
+              timestamp = moment.utc(line.substr(1)).local();
+              break;
+            case 2:
+              value = parseFloat(line.substr(1));
+              break;
+          }
+          if (step === 2) {
+            if (currentTarget == null) {
+              currentTarget = series;
+            }
+            if (currentTarget === series) {
+              datapoints.push([value, timestamp]);
+            } else {
+              data.push({
+                target: currentTarget,
+                datapoints: datapoints
+              });
+              datapoints = [[value, timestamp]];
+              currentTarget = series;
+            }
+          }
+          index++;
+        });
+        if (datapoints.length !== 0) {
+          data.push({
+            target: currentTarget,
+            datapoints: datapoints
+          });
+        }
+        return { data: data };
+      });
+    }
   }
 
   /** Test that datasource connection works */
@@ -190,16 +246,16 @@ class AkumuliDatasource {
   }
 
   /** Query time-series storage */
-  timeSeriesQuery(options) {
+  groupAggregateQuery(options) {
     var begin    = options.range.from.utc();
     var end      = options.range.to.utc();
     var interval = options.interval;
     var limit    = options.maxDataPoints;
-    console.log('timeSeriesQuery: ' + begin.format('YYYYMMDDThhmmss.SSS')
-                                    +   end.format('YYYYMMDDThhmmss.SSS'));
-    if (options.targets.length !== 1) {
-      console.log("Only a signel target is supported at the moment");
-      throw new Error("Only a signel target is supported at the moment");
+    console.log('timeSeriesQuery: ' + begin.format('YYYYMMDDTHHmmss.SSS')
+                                    +   end.format('YYYYMMDDTHHmmss.SSS'));
+    if (options.targets.length === 0) {
+      console.log("No target");
+      throw new Error("No target");
     }
     var metricName = options.targets[0].metric;
     var tags       = options.targets[0].tags;
@@ -211,8 +267,8 @@ class AkumuliDatasource {
         func: [ aggFunc ]
       },
       range: {
-        from: begin.format('YYYYMMDDThhmmss.SSS'),
-        to: end.format('YYYYMMDDThhmmss.SSS')
+        from: begin.format('YYYYMMDDTHHmmss.SSS'),
+        to: end.format('YYYYMMDDTHHmmss.SSS')
       },
       where: tags,
       //limit: limit,
@@ -227,6 +283,41 @@ class AkumuliDatasource {
 
     return this.backendSrv.datasourceRequest(httpRequest);
   }
+
+    /** Query time-series storage */
+  selectQuery(options) {
+    var begin    = options.range.from.utc();
+    var end      = options.range.to.utc();
+    var interval = options.interval;
+    var limit    = options.maxDataPoints;
+    console.log('timeSeriesQuery: ' + begin.format('YYYYMMDDTHHmmss.SSS')
+                                    +   end.format('YYYYMMDDTHHmmss.SSS'));
+    if (options.targets.length === 0) {
+      console.log("No target");
+      throw new Error("No target");
+    }
+    var metricName = options.targets[0].metric;
+    var tags       = options.targets[0].tags;
+    var requestBody: any = {
+      "select": metricName,
+      range: {
+        from: begin.format('YYYYMMDDTHHmmss.SSS'),
+        to: end.format('YYYYMMDDTHHmmss.SSS')
+      },
+      where: tags,
+      //limit: limit,
+      "order-by": "series"
+    };
+
+    var httpRequest: any = {
+      method: "POST",
+      url: this.instanceSettings.url + "/api/query",
+      data: requestBody
+    };
+
+    return this.backendSrv.datasourceRequest(httpRequest);
+  }
+
 }
 
 export {AkumuliDatasource};
