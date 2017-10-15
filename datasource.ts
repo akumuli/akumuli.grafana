@@ -257,6 +257,9 @@ class AkumuliDatasource {
       console.log("No target");
       throw new Error("No target");
     }
+    if (options.targets[0].downsampleInterval) {
+      interval = options.targets[0].downsampleInterval;
+    }
     var metricName = options.targets[0].metric;
     var tags       = options.targets[0].tags;
     var aggFunc    = options.targets[0].downsampleAggregator;
