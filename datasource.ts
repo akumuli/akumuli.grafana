@@ -15,112 +15,116 @@ class AkumuliDatasource {
     console.log(options.interval);
     console.log("-----");
     if (!options.targets[0].disableDownsampling) {
-      return this.groupAggregateQuery(options).then(res => {
-        if (res.data.charAt(0) === '-') {
-          console.log("Query error");
-          return { data: null };
-        }
+      return this.groupAggregateQuery(options).then(allres => {
         var data = [];
-        var lines = res.data.split("\r\n");
-        var index = 0;
-        var series = null;
-        var timestamp = null;
-        var value = 0.0;
-        var datapoints = [];
-        var currentTarget = null;
-        _.forEach(lines, line => {
-          let step = index % 4;
-          switch (step) {
-            case 0:
-              // parse series name
-              series = line.replace(/(\S*)(:mean)(.*)/g, "$1$3").substr(1);
-              break;
-            case 1:
-              // parse timestamp
-              timestamp = moment.utc(line.substr(1)).local();
-              break;
-            case 2:
-              break;
-            case 3:
-              value = parseFloat(line.substr(1));
-              break;
+        for (let res of allres) {
+          if (res.data.charAt(0) === '-') {
+            console.log("Query error");
+            return { data: null };
           }
-          if (step === 3) {
-            if (currentTarget == null) {
-              currentTarget = series;
+          var lines = res.data.split("\r\n");
+          var index = 0;
+          var series = null;
+          var timestamp = null;
+          var value = 0.0;
+          var datapoints = [];
+          var currentTarget = null;
+          _.forEach(lines, line => {
+            let step = index % 4;
+            switch (step) {
+              case 0:
+                // parse series name
+                series = line.replace(/(\S*)(:mean)(.*)/g, "$1$3").substr(1);
+                break;
+              case 1:
+                // parse timestamp
+                timestamp = moment.utc(line.substr(1)).local();
+                break;
+              case 2:
+                break;
+              case 3:
+                value = parseFloat(line.substr(1));
+                break;
             }
-            if (currentTarget === series) {
-              datapoints.push([value, timestamp]);
-            } else {
-              data.push({
-                target: currentTarget,
-                datapoints: datapoints
-              });
-              datapoints = [[value, timestamp]];
-              currentTarget = series;
+            if (step === 3) {
+              if (currentTarget == null) {
+                currentTarget = series;
+              }
+              if (currentTarget === series) {
+                datapoints.push([value, timestamp]);
+              } else {
+                data.push({
+                  target: currentTarget,
+                  datapoints: datapoints
+                });
+                datapoints = [[value, timestamp]];
+                currentTarget = series;
+              }
             }
-          }
-          index++;
-        });
-        if (datapoints.length !== 0) {
-          data.push({
-            target: currentTarget,
-            datapoints: datapoints
+            index++;
           });
+          if (datapoints.length !== 0) {
+            data.push({
+              target: currentTarget,
+              datapoints: datapoints
+            });
+          }
         }
         return { data: data };
       });
     } else {
-      return this.selectQuery(options).then(res => {
-        if (res.data.charAt(0) === '-') {
-          console.log("Query error");
-          return { data: null };
-        }
+      return this.selectQuery(options).then(allres => {
         var data = [];
-        var lines = res.data.split("\r\n");
-        var index = 0;
-        var series = null;
-        var timestamp = null;
-        var value = 0.0;
-        var datapoints = [];
-        var currentTarget = null;
-        _.forEach(lines, line => {
-          let step = index % 3;
-          switch (step) {
-            case 0:
-              // parse series name
-              series = line.substr(1);
-              break;
-            case 1:
-              // parse timestamp
-              timestamp = moment.utc(line.substr(1)).local();
-              break;
-            case 2:
-              value = parseFloat(line.substr(1));
-              break;
+        for (let res of allres) {
+          if (res.data.charAt(0) === '-') {
+            console.log("Query error");
+            return { data: null };
           }
-          if (step === 2) {
-            if (currentTarget == null) {
-              currentTarget = series;
+          var lines = res.data.split("\r\n");
+          var index = 0;
+          var series = null;
+          var timestamp = null;
+          var value = 0.0;
+          var datapoints = [];
+          var currentTarget = null;
+          _.forEach(lines, line => {
+            let step = index % 3;
+            switch (step) {
+              case 0:
+                // parse series name
+                series = line.substr(1);
+                break;
+              case 1:
+                // parse timestamp
+                timestamp = moment.utc(line.substr(1)).local();
+                break;
+              case 2:
+                value = parseFloat(line.substr(1));
+                break;
             }
-            if (currentTarget === series) {
-              datapoints.push([value, timestamp]);
-            } else {
-              data.push({
-                target: currentTarget,
-                datapoints: datapoints
-              });
-              datapoints = [[value, timestamp]];
-              currentTarget = series;
+            if (step === 2) {
+              if (currentTarget == null) {
+                currentTarget = series;
+              }
+              if (currentTarget === series) {
+                datapoints.push([value, timestamp]);
+              } else {
+                data.push({
+                  target: currentTarget,
+                  datapoints: datapoints
+                });
+                datapoints = [[value, timestamp]];
+                currentTarget = series;
+              }
             }
-          }
-          index++;
-        });
-        if (datapoints.length !== 0) {
-          data.push({
-            target: currentTarget,
-            datapoints: datapoints
+            index++;
           });
+          if (datapoints.length !== 0) {
+            data.push({
+              target: currentTarget,
+              datapoints: datapoints
+            });
+          }
         }
         return { data: data };
       });
@@ -250,75 +254,99 @@ class AkumuliDatasource {
     var begin    = options.range.from.utc();
     var end      = options.range.to.utc();
     var interval = options.interval;
-    var limit    = options.maxDataPoints;
+    var limit    = options.maxDataPoints;  // TODO: don't ignore the limit
     console.log('timeSeriesQuery: ' + begin.format('YYYYMMDDTHHmmss.SSS')
                                     +   end.format('YYYYMMDDTHHmmss.SSS'));
-    if (options.targets.length === 0) {
-      console.log("No target");
-      throw new Error("No target");
+    var queries = [];
+    for (let target of options.targets) {
+      var metricName = target.metric;
+      var tags = target.tags;
+      var aggFunc = target.downsampleAggregator;
+      var rate = target.shouldComputeRate;
+      var query: any = {
+        "group-aggregate": {
+          metric: metricName,
+          step: interval,
+          func: [ aggFunc ]
+        },
+        range: {
+          from: begin.format('YYYYMMDDTHHmmss.SSS'),
+          to: end.format('YYYYMMDDTHHmmss.SSS')
+        },
+        where: tags,
+        "order-by": "series"
+      };
+      if (rate) {
+        query["apply"] = [{name: "rate"}];
+      }
+      queries.push(query);
     }
-    if (options.targets[0].downsampleInterval) {
-      interval = options.targets[0].downsampleInterval;
+    if (_.isEmpty(queries)) {
+      return this.$q.when({data: []});
     }
-    var metricName = options.targets[0].metric;
-    var tags       = options.targets[0].tags;
-    var aggFunc    = options.targets[0].downsampleAggregator;
-    var requestBody: any = {
-      "group-aggregate": {
-        metric: metricName,
-        step: interval,
-        func: [ aggFunc ]
-      },
-      range: {
-        from: begin.format('YYYYMMDDTHHmmss.SSS'),
-        to: end.format('YYYYMMDDTHHmmss.SSS')
-      },
-      where: tags,
-      //limit: limit,
-      "order-by": "series"
-    };
 
-    var httpRequest: any = {
-      method: "POST",
-      url: this.instanceSettings.url + "/api/query",
-      data: requestBody
-    };
+    var requests = [];
+    for (let query of queries) {
+      var httpRequest: any = {
+        method: "POST",
+        url: this.instanceSettings.url + "/api/query",
+        data: query
+      };
+      requests.push(httpRequest);
+    }
 
-    return this.backendSrv.datasourceRequest(httpRequest);
+    var allQueryPromise = _.map(requests, httpRequest => {
+      return this.backendSrv.datasourceRequest(httpRequest);
+    });
+
+    return this.$q.all(allQueryPromise);
   }
 
     /** Query time-series storage */
   selectQuery(options) {
     var begin    = options.range.from.utc();
     var end      = options.range.to.utc();
-    var interval = options.interval;
-    var limit    = options.maxDataPoints;
+    var limit    = options.maxDataPoints;  // TODO: don't ignore the limit
     console.log('timeSeriesQuery: ' + begin.format('YYYYMMDDTHHmmss.SSS')
                                     +   end.format('YYYYMMDDTHHmmss.SSS'));
-    if (options.targets.length === 0) {
-      console.log("No target");
-      throw new Error("No target");
+    var queries = [];
+    for (let target of options.targets) {
+      var metricName = target.metric;
+      var tags = target.tags;
+      var rate = target.shouldComputeRate;
+      var query: any = {
+        "select": metricName,
+        range: {
+          from: begin.format('YYYYMMDDTHHmmss.SSS'),
+          to: end.format('YYYYMMDDTHHmmss.SSS')
+        },
+        where: tags,
+        "order-by": "series"
+      };
+      if (rate) {
+        query["apply"] = [{name: "rate"}];
+      }
+      queries.push(query);
     }
-    var metricName = options.targets[0].metric;
-    var tags       = options.targets[0].tags;
-    var requestBody: any = {
-      "select": metricName,
-      range: {
-        from: begin.format('YYYYMMDDTHHmmss.SSS'),
-        to: end.format('YYYYMMDDTHHmmss.SSS')
-      },
-      where: tags,
-      //limit: limit,
-      "order-by": "series"
-    };
+    if (_.isEmpty(queries)) {
+      return this.$q.when({data: []});
+    }
 
-    var httpRequest: any = {
-      method: "POST",
-      url: this.instanceSettings.url + "/api/query",
-      data: requestBody
-    };
+    var requests = [];
+    for (let query of queries) {
+      var httpRequest: any = {
+        method: "POST",
+        url: this.instanceSettings.url + "/api/query",
+        data: query
+      };
+      requests.push(httpRequest);
+    }
 
-    return this.backendSrv.datasourceRequest(httpRequest);
+    var allQueryPromise = _.map(requests, httpRequest => {
+      return this.backendSrv.datasourceRequest(httpRequest);
+    });
+
+    return this.$q.all(allQueryPromise);
   }
 
 }

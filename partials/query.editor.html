@@ -90,9 +90,17 @@
 										on-change="ctrl.targetBlur()">
 		</gf-form-switch>
 
+		<gf-form-switch class="gf-form" label="Rate" label-class="width-8 query-keyword" checked="ctrl.target.shouldComputeRate" on-change="ctrl.targetBlur()">
+		</gf-form-switch>
+		<!--
+		<gf-form-switch ng-hide="!ctrl.target.shouldComputeRate"
+										class="gf-form" label="Counter" label-class="query-keyword" checked="ctrl.target.isCounter" on-change="ctrl.targetBlur()">
+		</gf-form-switch>
+		-->
 		<div class="gf-form gf-form--grow">
 			<div class="gf-form-label gf-form-label--grow"></div>
 		</div>
+
 	</div>
 
 	<div class="gf-form-inline" ng-if="ctrl.tsdbVersion >= 2">
@@ -159,7 +167,8 @@
 					<a ng-click="ctrl.addFilter()" ng-hide="ctrl.errors.filters">add filter</a>
 					<a ng-click="ctrl.closeAddFilterMode()">
 						<i class="fa fa-remove"></i>
-					</a>
+					</a>		<gf-form-switch class="gf-form" label="Rate" label-class="width-8 query-keyword" checked="ctrl.target.shouldComputeRate" on-change="ctrl.targetBlur()">
+		</gf-form-switch>
 				</label>
 			</div>
 
@@ -225,44 +234,5 @@
 			<div class="gf-form-label gf-form-label--grow"></div>
 		</div>
 	</div>
-
-	<!--
-	<div class="gf-form-inline">
-		<gf-form-switch class="gf-form" label="Rate" label-class="width-8 query-keyword" checked="ctrl.target.shouldComputeRate" on-change="ctrl.targetBlur()">
-		</gf-form-switch>
-
-		<gf-form-switch ng-hide="!ctrl.target.shouldComputeRate"
-										class="gf-form" label="Counter" label-class="query-keyword" checked="ctrl.target.isCounter" on-change="ctrl.targetBlur()">
-		</gf-form-switch>
-
-
-		<div class="gf-form" ng-hide="!ctrl.target.isCounter || !ctrl.target.shouldComputeRate">
-			<label class="gf-form-label query-keyword">Counter Max</label>
-			<input type="text" class="gf-form-input"
-					 	 ng-disabled="!ctrl.target.shouldComputeRate"
-						 ng-model="ctrl.target.counterMax" spellcheck='false'
-						 placeholder="max value" ng-model-onblur
-						 ng-blur="ctrl.targetBlur()">
-			</input>
-
-			<label class="gf-form-label query-keyword">Reset Value</label>
-			<input type="text" class="tight-form-input input-small"
-					   ng-disabled="!ctrl.target.shouldComputeRate"
-						 ng-model="ctrl.target.counterResetValue" spellcheck='false'
-						 placeholder="reset value" ng-model-onblur
-						 ng-blur="ctrl.targetBlur()">
-			</input>
-		</div>
-
-		<div class="gf-form" ng-if="ctrl.tsdbVersion > 2">
-			<gf-form-switch class="gf-form" label="Explicit tags" label-class="width-8 query-keyword" checked="ctrl.target.explicitTags" on-change="ctrl.targetBlur()">
-			</gf-form-switch>
-		</div>
-
-		<div class="gf-form gf-form--grow">
-			<div class="gf-form-label gf-form-label--grow"></div>
-		</div>
-	</div>
-	-->
 </query-editor-row>
 
