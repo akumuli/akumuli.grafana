@@ -263,6 +263,8 @@ class AkumuliDatasource {
       var tags = target.tags;
       var aggFunc = target.downsampleAggregator;
       var rate = target.shouldComputeRate;
+      var ewma = target.shouldEWMA;
+      var decay = target.decay || 0.5;
       var query: any = {
         "group-aggregate": {
           metric: metricName,
@@ -274,10 +276,14 @@ class AkumuliDatasource {
           to: end.format('YYYYMMDDTHHmmss.SSS')
         },
         where: tags,
-        "order-by": "series"
+        "order-by": "series",
+        apply: []
       };
       if (rate) {
-        query["apply"] = [{name: "rate"}];
+        query["apply"].push({name: "rate"});
+      }
+      if (ewma) {
+        query["apply"].push({name: "ewma-error", decay: decay});
       }
       queries.push(query);
     }
@@ -314,6 +320,8 @@ class AkumuliDatasource {
       var metricName = target.metric;
       var tags = target.tags;
       var rate = target.shouldComputeRate;
+      var ewma = target.shouldEWMA;
+      var decay = target.decay || 0.5;
       var query: any = {
         "select": metricName,
         range: {
@@ -321,10 +329,14 @@ class AkumuliDatasource {
           to: end.format('YYYYMMDDTHHmmss.SSS')
         },
         where: tags,
-        "order-by": "series"
+        "order-by": "series",
+        apply: []
       };
       if (rate) {
-        query["apply"] = [{name: "rate"}];
+        query["apply"].push({name: "rate"});
+      }
+      if (ewma) {
+        query["apply"].push({name: "ewma-error", decay: decay});
       }
       queries.push(query);
     }
