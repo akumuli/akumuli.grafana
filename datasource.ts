@@ -163,60 +163,58 @@ class AkumuliDatasource {
       data: query
     };
     // Read the actual data and process it
-    return this.backendSrv.datasourceRequest(httpRequest).then(allres => {
+    return this.backendSrv.datasourceRequest(httpRequest).then(res => {
       var data = [];
-      for (let res of allres) {
-        if (res.data.charAt(0) === '-') {
-          console.log("Query error");
-          return { data: null };
+      if (res.data.charAt(0) === '-') {
+        console.log("Query error");
+        return { data: null };
+      }
+      var lines = res.data.split("\r\n");
+      var index = 0;
+      var series = null;
+      var timestamp = null;
+      var value = 0.0;
+      var datapoints = [];
+      var currentTarget = null;
+      _.forEach(lines, line => {
+        let step = index % 4;
+        switch (step) {
+          case 0:
+            // parse series name
+            series = line.replace(/(\S*)(:mean)(.*)/g, "$1$3").substr(1);
+            break;
+          case 1:
+            // parse timestamp
+            timestamp = moment.utc(line.substr(1)).local();
+            break;
+          case 2:
+            break;
+          case 3:
+            value = parseFloat(line.substr(1));
+            break;
         }
-        var lines = res.data.split("\r\n");
-        var index = 0;
-        var series = null;
-        var timestamp = null;
-        var value = 0.0;
-        var datapoints = [];
-        var currentTarget = null;
-        _.forEach(lines, line => {
-          let step = index % 4;
-          switch (step) {
-            case 0:
-              // parse series name
-              series = line.replace(/(\S*)(:mean)(.*)/g, "$1$3").substr(1);
-              break;
-            case 1:
-              // parse timestamp
-              timestamp = moment.utc(line.substr(1)).local();
-              break;
-            case 2:
-              break;
-            case 3:
-              value = parseFloat(line.substr(1));
-              break;
+        if (step === 3) {
+          if (currentTarget == null) {
+            currentTarget = series;
           }
-          if (step === 3) {
-            if (currentTarget == null) {
-              currentTarget = series;
-            }
-            if (currentTarget === series) {
-              datapoints.push([value, timestamp]);
-            } else {
-              data.push({
-                target: currentTarget,
-                datapoints: datapoints
-              });
-              datapoints = [[value, timestamp]];
-              currentTarget = series;
-            }
+          if (currentTarget === series) {
+            datapoints.push([value, timestamp]);
+          } else {
+            data.push({
+              target: currentTarget,
+              datapoints: datapoints
+            });
+            datapoints = [[value, timestamp]];
+            currentTarget = series;
           }
-          index++;
+        }
+        index++;
+      });
+      if (datapoints.length !== 0) {
+        data.push({
+          target: currentTarget,
+          datapoints: datapoints
         });
-        if (datapoints.length !== 0) {
-          data.push({
-            target: currentTarget,
-            datapoints: datapoints
-          });
-        }
       }
       return data;
     });
@@ -256,60 +254,57 @@ class AkumuliDatasource {
 
     console.log("send query: ");
     console.log(httpRequest);
-    return this.backendSrv.datasourceRequest(httpRequest).then(allres => {
+    return this.backendSrv.datasourceRequest(httpRequest).then(res => {
       var data = [];
-      console.log("Response received");
-      for (let res of allres) {
-        if (res.data.charAt(0) === '-') {
-          console.log("Query error");
-          return { data: null };
+      if (res.data.charAt(0) === '-') {
+        console.log("Query error");
+        return { data: null };
+      }
+      console.log("Results OK, processing");
+      var lines = res.data.split("\r\n");
+      var index = 0;
+      var series = null;
+      var timestamp = null;
+      var value = 0.0;
+      var datapoints = [];
+      var currentTarget = null;
+      _.forEach(lines, line => {
+        let step = index % 3;
+        switch (step) {
+          case 0:
+            // parse series name
+            series = line.substr(1);
+            break;
+          case 1:
+            // parse timestamp
+            timestamp = moment.utc(line.substr(1)).local();
+            break;
+          case 2:
+            value = parseFloat(line.substr(1));
+            break;
         }
-        console.log("Results OK, processing");
-        var lines = res.data.split("\r\n");
-        var index = 0;
-        var series = null;
-        var timestamp = null;
-        var value = 0.0;
-        var datapoints = [];
-        var currentTarget = null;
-        _.forEach(lines, line => {
-          let step = index % 3;
-          switch (step) {
-            case 0:
-              // parse series name
-              series = line.substr(1);
-              break;
-            case 1:
-              // parse timestamp
-              timestamp = moment.utc(line.substr(1)).local();
-              break;
-            case 2:
-              value = parseFloat(line.substr(1));
-              break;
+        if (step === 2) {
+          if (currentTarget == null) {
+            currentTarget = series;
           }
-          if (step === 2) {
-            if (currentTarget == null) {
-              currentTarget = series;
-            }
-            if (currentTarget === series) {
-              datapoints.push([value, timestamp]);
-            } else {
-              data.push({
-                target: currentTarget,
-                datapoints: datapoints
-              });
-              datapoints = [[value, timestamp]];
-              currentTarget = series;
-            }
+          if (currentTarget === series) {
+            datapoints.push([value, timestamp]);
+          } else {
+            data.push({
+              target: currentTarget,
+              datapoints: datapoints
+            });
+            datapoints = [[value, timestamp]];
+            currentTarget = series;
           }
-          index++;
+        }
+        index++;
+      });
+      if (datapoints.length !== 0) {
+        data.push({
+          target: currentTarget,
+          datapoints: datapoints
         });
-        if (datapoints.length !== 0) {
-          data.push({
-            target: currentTarget,
-            datapoints: datapoints
-          });
-        }
       }
       return data;
     });
