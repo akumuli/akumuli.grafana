@@ -33,9 +33,11 @@ class AkumuliDatasource {
 
     return this.backendSrv.datasourceRequest(httpRequest).then(res => {
       var data = [];
+      if (res.status === 'error') {
+        throw res.error;
+      }
       if (res.data.charAt(0) === '-') {
-        console.log("Query error");
-        return data;
+        throw { message: res.data.substr(1) };
       }
       var lines = res.data.split("\r\n");
       _.forEach(lines, line => {
@@ -79,9 +81,11 @@ class AkumuliDatasource {
 
     return this.backendSrv.datasourceRequest(httpRequest).then(res => {
       var data = [];
+      if (res.status === 'error') {
+        throw res.error;
+      }
       if (res.data.charAt(0) === '-') {
-        console.log("Query error");
-        return data;
+        throw { message: res.data.substr(1) };
       }
       var lines = res.data.split("\r\n");
       _.forEach(lines, line => {
@@ -111,9 +115,11 @@ class AkumuliDatasource {
 
     return this.backendSrv.datasourceRequest(httpRequest).then(res => {
       var data = [];
+      if (res.status === 'error') {
+        throw res.error;
+      }
       if (res.data.charAt(0) === '-') {
-        console.log("Query error");
-        return data;
+        throw { message: res.data.substr(1) };
       }
       var lines = res.data.split("\r\n");
       _.forEach(lines, line => {
@@ -128,8 +134,6 @@ class AkumuliDatasource {
 
   /** Query time-series storage */
   groupAggregateTargetQuery(begin, end, interval, limit, target) {
-    console.log('timeSeriesQuery: ' + begin.format('YYYYMMDDTHHmmss.SSS')
-                                    +   end.format('YYYYMMDDTHHmmss.SSS'));
     var metricName = target.metric;
     var tags = target.tags;
     var aggFunc = target.downsampleAggregator;
@@ -165,9 +169,11 @@ class AkumuliDatasource {
     // Read the actual data and process it
     return this.backendSrv.datasourceRequest(httpRequest).then(res => {
       var data = [];
+      if (res.status === 'error') {
+        throw res.error;
+      }
       if (res.data.charAt(0) === '-') {
-        console.log("Query error");
-        return { data: null };
+        throw { message: res.data.substr(1) };
       }
       var lines = res.data.split("\r\n");
       var index = 0;
@@ -222,8 +228,6 @@ class AkumuliDatasource {
 
   /** Query time-series storage */
   selectTargetQuery(begin, end, limit, target) {
-    console.log('timeSeriesQuery: ' + begin.format('YYYYMMDDTHHmmss.SSS')
-                                    +   end.format('YYYYMMDDTHHmmss.SSS'));
     var metricName = target.metric;
     var tags = target.tags;
     var rate = target.shouldComputeRate;
@@ -252,15 +256,14 @@ class AkumuliDatasource {
       data: query
     };
 
-    console.log("send query: ");
-    console.log(httpRequest);
     return this.backendSrv.datasourceRequest(httpRequest).then(res => {
       var data = [];
-      if (res.data.charAt(0) === '-') {
-        console.log("Query error");
-        return { data: null };
+      if (res.status === 'error') {
+        throw res.error;
       }
-      console.log("Results OK, processing");
+      if (res.data.charAt(0) === '-') {
+        throw { message: "Query error: " + res.data.substr(1) };
+      }
       var lines = res.data.split("\r\n");
       var index = 0;
       var series = null;
@@ -316,22 +319,16 @@ class AkumuliDatasource {
     var end      = options.range.to.utc();
     var interval = options.interval;
     var limit    = options.maxDataPoints;  // TODO: don't ignore the limit
-    console.log('timeSeriesQuery: ' + begin.format('YYYYMMDDTHHmmss.SSS')
-                                    +   end.format('YYYYMMDDTHHmmss.SSS'));
     var allQueryPromise = _.map(options.targets, target => {
       var disableDownsampling = target.disableDownsampling;
       if (disableDownsampling) {
-        console.log('select query!');
         return this.selectTargetQuery(begin, end, limit, target);
       } else {
-        console.log('select query!');
         return this.groupAggregateTargetQuery(begin, end, interval, limit, target);
       }
     });
 
     return this.$q.all(allQueryPromise).then(allResults => {
-      console.log('query returned:');
-      console.log(allResults);
       var data = [];
       _.forEach(allResults, (result, index) => {
         data = data.concat(result);
