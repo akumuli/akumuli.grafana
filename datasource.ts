@@ -50,6 +50,30 @@ class AkumuliDatasource {
     });
   }
 
+  /** Parse series name in a canonical form */
+  extractTags(names) {
+    var where = {};
+    _.forEach(names, name => {
+      var tags = name.split(' ');
+      if (tags.length < 2) {
+        // This shouldn't happen since series name should
+        // contain a metric name and at least one tag.
+        throw "bad metric name received";
+      }
+      var metric = tags[0];
+      for (var i = 1; i < tags.length; i++) {
+        var kv = tags[i].split('=');
+        var tag = kv[0];
+        var value = kv[1];
+        if (!where[tag]) {
+          where[tag] = [];
+        }
+        where[tag].push(value);
+      }
+    });
+    return where;
+  }
+
   annotationQuery(options) {
     return this.backendSrv.get('/api/annotations', {
       from: options.range.from.valueOf(),
@@ -227,6 +251,76 @@ class AkumuliDatasource {
   }
 
   /** Query time-series storage */
+  selectTopNQuery(begin, end, limit, target) {
+    // Use all the same parametres as original query
+    // but add 'top' function to the 'apply' clause.
+    // Extract tags from results and run 'select' query
+    // nomrally.
+    var metricName = target.metric;
+    var tags = target.tags;
+    var isTop = target.shouldTop;
+    var topN = target.topN;
+    if (!isTop) {
+      throw "top-N parameter required";
+    }
+    var query: any = {
+      "select": metricName,
+      range: {
+        from: begin.format('YYYYMMDDTHHmmss.SSS'),
+        to: end.format('YYYYMMDDTHHmmss.SSS')
+      },
+      where: tags,
+      "order-by": "series",
+      apply: [{name: "top", N: topN}]
+    };
+
+    var httpRequest: any = {
+      method: "POST",
+      url: this.instanceSettings.url + "/api/query",
+      data: query
+    };
+
+    return this.backendSrv.datasourceRequest(httpRequest).then(res => {
+      var data = [];
+      if (res.status === 'error') {
+        throw res.error;
+      }
+      if (res.data.charAt(0) === '-') {
+        throw { message: "Query error: " + res.data.substr(1) };
+      }
+      var lines = res.data.split("\r\n");
+      var index = 0;
+      var series = null;
+      var timestamp = null;
+      var value = 0.0;
+      var datapoints = [];
+      var currentTarget = null;
+      var series_names = [];
+      _.forEach(lines, line => {
+        let step = index % 3;
+        if (step === 0) {
+            // parse series name
+            series = line.substr(1);
+            if (series) {
+              series_names.push(series);
+            }
+            console.log("Series name: %s", series);
+        }
+        index++;
+      });
+      var newTarget = {
+        metric: metricName,
+        tags: this.extractTags(series_names),
+        shouldComputeRate: target.shouldComputeRate,
+        shouldEWMA: target.shouldEWMA,
+        decay: target.decay,
+      };
+      console.log(newTarget);
+      return this.selectTargetQuery(begin, end, limit, newTarget);
+    });
+  }
+
+  /** Query time-series storage */
   selectTargetQuery(begin, end, limit, target) {
     var metricName = target.metric;
     var tags = target.tags;
@@ -249,7 +343,6 @@ class AkumuliDatasource {
     if (ewma) {
       query["apply"].push({name: "ewma-error", decay: decay});
     }
-
     var httpRequest: any = {
       method: "POST",
       url: this.instanceSettings.url + "/api/query",
@@ -321,8 +414,13 @@ class AkumuliDatasource {
     var limit    = options.maxDataPoints;  // TODO: don't ignore the limit
     var allQueryPromise = _.map(options.targets, target => {
       var disableDownsampling = target.disableDownsampling;
+      var isTop = target.shouldTop;
       if (disableDownsampling) {
-        return this.selectTargetQuery(begin, end, limit, target);
+        if (isTop) {
+          return this.selectTopNQuery(begin, end, limit, target);
+        } else {
+          return this.selectTargetQuery(begin, end, limit, target);
+        }
       } else {
         return this.groupAggregateTargetQuery(begin, end, interval, limit, target);
       }

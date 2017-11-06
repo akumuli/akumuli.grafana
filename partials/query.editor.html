@@ -73,15 +73,20 @@
 			</div>
 		</div>
 
-		<div class="gf-form" ng-if="ctrl.tsdbVersion >= 2">
-			<label class="gf-form-label query-keyword width-6">Fill</label>
-			<div class="gf-form-select-wrapper">
-				<select ng-model="ctrl.target.downsampleFillPolicy" class="gf-form-input"
-								ng-options="agg for agg in ctrl.fillPolicies"
-								ng-change="ctrl.targetBlur()">
-				</select>
-			</div>
+	    <gf-form-switch class="gf-form" label="Top" label-class="width-6 query-keyword" checked="ctrl.target.shouldTop" on-change="ctrl.targetBlur()">
+		</gf-form-switch>
+	    <div class="gf-form max-width-25" ng-hide="!ctrl.target.shouldTop">
+			<label class="gf-form-label query-keyword width-6">N</label>
+			<input type="text" class="gf-form-input"
+						 ng-model="ctrl.target.topN"
+						 ng-model-onblur
+			       ng-change="ctrl.targetBlur()"
+			       placeholder="5"></input>
+			<info-popover mode="right-absolute">
+				blank for auto, or for example <code>5</code>
+			</info-popover>
 		</div>
+		...
 
 		<gf-form-switch class="gf-form"
 										label="Disable downsampling"

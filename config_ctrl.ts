@@ -4,7 +4,7 @@ import angular from 'angular';
 import _ from 'lodash';
 
 export class AkumuliConfigCtrl {
-  static templateUrl = 'public/app/plugins/datasource/akumuli/partials/config.html';
+  static templateUrl = 'public/app/plugins/datasource/akumuli-datasource/partials/config.html';
   current: any;
 
   /** @ngInject */
