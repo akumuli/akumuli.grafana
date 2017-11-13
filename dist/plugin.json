@@ -1,0 +1,21 @@
+{
+  "type": "datasource",
+  "name": "Akumuli",
+  "id": "akumuli-datasource",
+
+  "metrics": true,
+  "defaultMatchFormat": "pipe",
+  "annotations": true,
+  "alerting": true,
+
+  "info": {
+    "author": {
+      "name": "Akumuli Authors",
+      "url": "https://akumuli.org"
+    },
+    "logos": {
+      "small": "img/logo.svg.png",
+      "large": "img/logo.svg.png"
+    }
+  }
+}
